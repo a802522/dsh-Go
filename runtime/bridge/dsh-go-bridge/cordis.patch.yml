@@ -181,3 +181,31 @@
           - id: tool-plugin-market
             name: '@deepseek-ai/dsh-plugin-market/tools'
             disabled: true
+# --- privacy fork: upstream DSH upload switches (official DeepSeek route) ---
+# These are top-level id-targeted overlays, NOT insert rows: session-log-deepseek
+# and plugin-package-inventory-deepseek already exist in the base web profile, so
+# inserting them again would fail the boot with a duplicate loader entry id.
+# A patch row that matches nothing is warned about and skipped, so these are safe
+# even if a future DSH drops a row. They sit after the shared-rows marker, so
+# rtbuild.py bridge_shared_rows() also copies them into /etc/dsh-app/dsh-web.patch.yml
+# (as top-level entries, after the overlay's insert block), which is the overlay the
+# local Android runtime loads with --patch. Verify with
+# `dsh --profile web --dump-config` showing enabled: false for both rows, on a
+# fresh session: re-enabling session-log-deepseek resumes the backlog recorded
+# while it was off.
+- id: session-log-deepseek
+  config:
+    enabled: false
+    maxBytes: 8388608
+- id: plugin-package-inventory-deepseek
+  config:
+    enabled: false
+- id: session-telemetry-otel
+  disabled: true
+  config:
+    mode: DISABLED
+# product-analytics row id is not verified against the pinned DSH config catalog
+# (its README only names the `product-analytics` settings namespace; the web
+# profile is not expected to mount it). If it matches nothing it is skipped.
+- id: product-analytics
+  disabled: true
