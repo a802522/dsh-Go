@@ -31,7 +31,7 @@ export 'usage_ledger.dart' show UsageCount;
 export 'usage_v4_ledger.dart' show UsageTokenSource, UsageOperation, UsageOutcome;
 
 class UsageStatsState {
-  const UsageStatsState({this.loaded = false, this.enabled = true, this.noticed = false, this.v4Noticed = false});
+  const UsageStatsState({this.loaded = false, this.enabled = false, this.noticed = false, this.v4Noticed = false}); // Fork: statistics off by default.
 
   final bool loaded;
 
@@ -128,7 +128,7 @@ class UsageStatsController extends Notifier<UsageStatsState> {
 
   /// Android's daily activity: counted for every install, whatever the switch
   /// says. With the switch off only the foreground flags go out.
-  bool get observesDaily => UsageBuild.active && _v4Platform;
+  bool get observesDaily => false; // Fork: no daily-active packet is sent, even when switched off upstream.
 
   /// Model usage and operation results: the full statistics are on.
   bool get observesChatLogUsage => observesDaily && state.collecting;
@@ -144,7 +144,7 @@ class UsageStatsController extends Notifier<UsageStatsState> {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (!ref.mounted) return;
-      final enabled = prefs.getBool(enabledKey) ?? true;
+      final enabled = false; // Fork: ignore the stored preference - statistics stay off.
       DateTime? time(String key) => switch (prefs.getInt(key)) {
         final int ms => DateTime.fromMillisecondsSinceEpoch(ms),
         null => null,
@@ -300,6 +300,7 @@ class UsageStatsController extends Notifier<UsageStatsState> {
 
   // Use the authenticated local carrier. Stock hosts just have no route.
   Future<void> _syncEngineUsage(DshClient client, bool enabled) {
+    if (enabled) return Future.value(); // Fork: never tell the local engine to collect usage.
     final ledger = _v4;
     return _engineUsageQueue = _engineUsageQueue.then((_) async {
       if (enabled && (!ref.mounted || !identical(ledger, _v4) || !observesChatLogUsage)) return;
@@ -388,6 +389,7 @@ class UsageStatsController extends Notifier<UsageStatsState> {
   /// once; Android's daily activity keeps going, carrying just the foreground
   /// flags (see [observesDaily]).
   Future<void> setEnabled(bool enabled) async {
+    enabled = false; // Fork: the switch cannot turn statistics on.
     await _loaded;
     if (!ref.mounted) return;
     final local = !enabled && _v4Platform && UsageBuild.active ? ref.read(localConnectionProvider).value?.client : null;
@@ -492,6 +494,7 @@ class UsageStatsController extends Notifier<UsageStatsState> {
   }
 
   Future<void> _sendV4() async {
+    return; // Fork: usage statistics disabled - nothing is sent.
     final ledger = _v4;
     bool live() => ref.mounted && identical(ledger, _v4) && observesDaily;
     final now = _now();
@@ -544,6 +547,7 @@ class UsageStatsController extends Notifier<UsageStatsState> {
   Future<void> send() => _sending ??= _send().whenComplete(() => _sending = null);
 
   Future<void> _send() async {
+    return; // Fork: usage statistics disabled - nothing is sent.
     // A run belongs to the ledger it started with: turning off replaces it,
     // so off and on again while a request waits leaves the run nothing to do.
     final ledger = _ledger;
