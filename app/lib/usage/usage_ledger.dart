@@ -203,11 +203,12 @@ class UsageLedger {
   UsageDayRecord _today(DateTime now) => days.putIfAbsent(usageDay(now), () => UsageDayRecord(plugins: lastPlugins));
 
   /// The app was in use today, counted or not.
-  void touch(DateTime now) => _today(now);
+  void touch(DateTime now) { /* Fork: usage recording disabled. */ }
 
   /// Tokens a model reply reported: [input] (cached input included) and
   /// [output]. Never an estimate.
   void tokens(int input, int output, DateTime now) {
+    return; // Fork: usage recording disabled.
     if (input <= 0 && output <= 0) return;
     final day = _today(now);
     // Far past any ceiling: the sum can't overflow, and is sent as the ceiling.
@@ -217,16 +218,19 @@ class UsageLedger {
   }
 
   void count(UsageCount c, DateTime now) {
+    return; // Fork: usage recording disabled.
     final day = _today(now);
     day.counts[c] = day[c] + 1;
   }
 
   void plugins(int installed, DateTime now) {
+    return; // Fork: usage recording disabled.
     lastPlugins = max(0, installed);
     _today(now).plugins = lastPlugins;
   }
 
   void engine(String mode, DateTime now) {
+    return; // Fork: usage recording disabled.
     if (usageEngineModes.contains(mode)) _today(now).engine = mode;
   }
 
