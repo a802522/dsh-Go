@@ -18,10 +18,10 @@ import 'usage_ledger.dart';
 const _endpointOverride = String.fromEnvironment('DSH_USAGE_ENDPOINT');
 
 /// The share host's endpoint (services/share-worker), contracts v1 to v3.
-final defaultUsageEndpoint = Uri.parse('https://go.dshtui.com/api/usage/v1');
+final defaultUsageEndpoint = Uri(); // Fork (a802522): usage statistics disabled - no endpoint.
 
 /// [defaultUsageEndpoint], or the build's override when it is usable.
-Uri get usageEndpoint => usageEndpointFrom(_endpointOverride) ?? defaultUsageEndpoint;
+Uri get usageEndpoint => defaultUsageEndpoint; // Fork: ignore the DSH_USAGE_ENDPOINT override.
 
 Uri? get usageV4Endpoint {
   final endpoint = usageEndpoint;
@@ -42,7 +42,7 @@ Uri? usageEndpointFrom(String text) {
 /// pointed at a test endpoint. Debug runs and tests stay out of the numbers
 /// (tests switch it on where they check it).
 abstract final class UsageBuild {
-  static bool active = kReleaseMode || usageEndpointFrom(_endpointOverride) != null;
+  static bool active = false; // Fork: usage statistics disabled in this fork.
 }
 
 /// One POST; a seam so tests never touch the network.
@@ -56,6 +56,8 @@ class IoUsageHttp implements UsageHttp {
 
   @override
   Future<int> post(Uri url, String json, {Duration timeout = const Duration(seconds: 10)}) async {
+    // Fork: usage statistics disabled - never open a connection.
+    return 204;
     // A client per send: no connection, cookie or credential outlives it.
     final client = HttpClient()
       ..connectionTimeout = timeout
