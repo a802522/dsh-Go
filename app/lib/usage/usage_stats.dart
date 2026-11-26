@@ -1,6 +1,6 @@
 // 发送匿名使用统计: anonymous, per-day counts kept on the phone and sent once
 // each, the day after (contracts v1–v3, usage_ledger.dart, and Android's v4
-// daily ledger). On by default; seeing the switch only records that it was
+// daily ledger). Disabled in this fork; seeing the switch only records that it was
 // shown. Android daily activity is counted for every install, the switch on or
 // off: switched off, the v4 report carries the foreground flags and nothing
 // else. Off means the rest is neither counted nor uploaded; the local engine
@@ -149,9 +149,13 @@ class UsageStatsController extends Notifier<UsageStatsState> {
         final int ms => DateTime.fromMillisecondsSinceEpoch(ms),
         null => null,
       };
-      // The v4 daily activity survives the switch: only its other rows are off.
-      _v4 = UsageV4Ledger.decode(prefs.getString(v4LedgerKey));
+      // Fork: any persisted v4 ledger is dropped on load and its key removed,
+      // so no backlog can ever be sent - decode() itself also ignores raw data.
+      _v4 = UsageV4Ledger();
       _v4Saved = _v4.encode();
+      for (final key in [v4LedgerKey, daysKey, iidKey, iidSinceKey, failedAtKey, closedDayKey]) {
+        await prefs.remove(key);
+      }
       if (enabled) {
         _ledger = UsageLedger.decode(prefs.getString(daysKey));
         _iid = prefs.getString(iidKey);
@@ -403,9 +407,9 @@ class UsageStatsController extends Notifier<UsageStatsState> {
       _closedDay = null;
       _device = null;
       _saved = null;
-      _v4 = _v4.onlyDaily();
-      daily = _v4.encode();
-      _v4Saved = daily;
+      _v4 = UsageV4Ledger();
+      daily = null;
+      _v4Saved = _v4.encode();
       _v4Failed = null;
       _v4ClosedDay = null;
       if (local != null) unawaited(_syncEngineUsage(local, false));
@@ -417,7 +421,7 @@ class UsageStatsController extends Notifier<UsageStatsState> {
         for (final key in [daysKey, iidKey, iidSinceKey, failedAtKey, closedDayKey]) {
           await prefs.remove(key);
         }
-        if (daily != null) await prefs.setString(v4LedgerKey, daily);
+        await prefs.remove(v4LedgerKey);
       }
     });
     if (enabled) unawaited(foreground());
@@ -487,10 +491,8 @@ class UsageStatsController extends Notifier<UsageStatsState> {
   }
 
   Future<void> _saveV4() {
-    final snapshot = _v4.encode();
-    if (snapshot == _v4Saved) return _writes;
-    _v4Saved = snapshot;
-    return _write((prefs) => prefs.setString(v4LedgerKey, snapshot));
+    // Fork: the v4 ledger is never persisted - nothing is written to disk.
+    return _writes;
   }
 
   Future<void> _sendV4() async {
