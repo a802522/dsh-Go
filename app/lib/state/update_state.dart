@@ -89,7 +89,7 @@ class AppUpdateState {
     this.loaded = false,
     this.installable = true,
     this.noticeOnly = false,
-    this.autoCheck = true,
+    this.autoCheck = false, // Fork: automatic update checks off by default; manual check still works.
     this.flavor,
     this.check = UpdateCheckPhase.idle,
     this.checkFailure,
@@ -410,7 +410,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
     state = state.copyWith(
       loaded: true,
       installable: installable,
-      autoCheck: prefs.getBool(_autoKey) ?? true,
+      autoCheck: prefs.getBool(_autoKey) ?? false,
       current: current,
       flavor: flavor,
       skippedVersion: () => prefs.getString(_skippedKey),
@@ -571,7 +571,7 @@ class AppUpdateController extends Notifier<AppUpdateState> {
       installable: false,
       noticeOnly: true,
       current: current,
-      autoCheck: prefs.getBool(_autoKey) ?? true,
+      autoCheck: prefs.getBool(_autoKey) ?? false,
       skippedVersion: () => prefs.getString(_skippedKey),
       lastCheckedAt: checked == null ? null : DateTime.fromMillisecondsSinceEpoch(checked),
       latest: () => latest,
