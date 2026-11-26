@@ -27,7 +27,7 @@
 
 <br>
 
-> **Fork 说明（a802522/dsh-Go）：** 本 fork 已关闭匿名使用统计上报（`app/lib/usage/` 不再向任何服务器发送统计，包括关掉开关后原版仍会发的每日活跃包），自动更新检查默认关闭（可手动检查）。模型请求仍发往你自己配置的模型提供方，用户主动分享链接的功能保留。
+> **Fork 说明（a802522/dsh-Go）：** 本 fork 已关闭匿名使用统计上报（`app/lib/usage/` 不再向任何服务器发送统计，包括关掉开关后原版仍会发的每日活跃包），自动更新检查默认关闭（可手动检查）。上游 DSH 引擎的上传也已关闭：`session-log-deepseek` 与 `plugin-package-inventory-deepseek` 均设为 `enabled: false`，OTel 会话遥测以 `DSH_TELEMETRY_DISABLED=1` 关闭（见 `runtime/bridge/dsh-go-bridge/cordis.patch.yml` 与 `DshProcess.kt`）。模型请求仍发往你自己配置的模型提供方（官方 DeepSeek 接口），用户主动分享链接的功能保留。注意：模型请求本身仍会带 `x-deepseek-harness-user-id` / `x-deepseek-harness-session-id` 请求头，且改动须在全新会话上验证（`dsh --profile web --dump-config`）。
 
 <h3 align="center">Deepy 和鲸娘，陪你干活</h3>
 
