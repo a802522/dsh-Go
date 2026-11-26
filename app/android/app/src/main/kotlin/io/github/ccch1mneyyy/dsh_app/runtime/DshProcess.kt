@@ -131,7 +131,17 @@ class DshProcess(
         val launchArgv = DirectLaunch.prootArguments(rootfs, manifest.launchArgv, direct)
         val allBinds = binds.filterNot { expand(it) == sameBind }.distinct()
         // PRoot's Node resolves through glibc, which fails A with a refused AAAA (#152): add Direct's resolver.
+        // Privacy fork: DSH's OTel session telemetry is feedback-only by default, but
+        // DSH_TELEMETRY_DISABLED is the only switch that constructs no OTel transport
+        // at all. Forced here, after guestEnv so it wins over any caller value, so it
+        // reaches the guest in proot, direct and tawcroot launches alike: DshProcess
+        // puts effectiveGuestEnv into the argv after `/usr/bin/env -i`, DirectLaunch
+        // parses those assignments into its guest env, and TawcrootLaunch passes them
+        // through untouched. This does NOT stop dsh_session_log / dsh_plugin_packages;
+        // those are disabled by the cordis.patch.yml overlay rows.
         val effectiveGuestEnv = guestEnv + ("DSH_GO_RUNTIME_ROOT" to rootfs.canonicalPath) +
+            ("DSH_TELEMETRY_DISABLED" to "1") +
+            ("DSH_TELEMETRY_MODE" to "DISABLED") +
             listOfNotNull(if (direct) null else "NODE_OPTIONS" to DirectLaunch.prootNodeOptions(guestEnv["NODE_OPTIONS"]))
         var guestEnvPlaced = false
         check(manifest.launchArgv.isNotEmpty()) { "runtime manifest has no launch.argv" }
