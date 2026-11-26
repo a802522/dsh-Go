@@ -511,6 +511,23 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
 
   private static let notice = "前后台状态尚未同步，本机任务可能仍在暂停或运行；正在重试。"
 
+  // Privacy fork: the iOS engine is started with two --patch overlays
+  // (ohos-host.patch.json from the shared host core, ios-host.patch.json from
+  // preparePhone below). The bridge cordis.patch.yml layer is NOT applied on
+  // iOS: it only applies when a profile lists the bundle, and the iOS runtime
+  // has no /etc/dsh-app/dsh-web.patch.yml (rtbuild.py generates that file for
+  // Android only). These rows are the iOS copy of the cordis.patch.yml
+  // privacy rows, in the same id-targeted form, and they win as the later
+  // --patch layer.
+  private static var privacyPatchEntries: [[String: Any]] {
+    [
+      ["id": "session-log-deepseek", "config": ["enabled": false, "maxBytes": 8388608]],
+      ["id": "plugin-package-inventory-deepseek", "config": ["enabled": false]],
+      ["id": "session-telemetry-otel", "disabled": true, "config": ["mode": "DISABLED"]],
+      ["id": "product-analytics", "disabled": true],
+    ]
+  }
+
   private let methods: FlutterMethodChannel
   private let events: FlutterEventChannel
   private let queue = DispatchQueue(label: "dsh.engine", qos: .userInitiated)
@@ -1132,11 +1149,21 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
       runtimeGeneration += 1
       lastStart = (environment, visualReplies)
       if (try? preparePhone()) == nil {
-        try Data("[]".utf8).write(to: dshHome.appendingPathComponent("ios-host.patch.json"), options: .atomic)
+        // Phone preparation failed: keep the privacy rows even without phone tools.
+        let patch = try JSONSerialization.data(withJSONObject: Self.privacyPatchEntries, options: .withoutEscapingSlashes)
+        try patch.write(to: dshHome.appendingPathComponent("ios-host.patch.json"), options: .atomic)
       }
       NSTimeZone.resetSystemTimeZone()
       var launchEnvironment = environment
       launchEnvironment["TZ"] = TimeZone.current.identifier
+      // Privacy fork: DSH's OTel session telemetry is feedback-only by default,
+      // but DSH_TELEMETRY_DISABLED is the only switch that constructs no OTel
+      // transport at all. Forced here, after the Dart environment so it wins
+      // over any caller value; Host::Run setenvs it before Node starts. This
+      // does NOT stop dsh_session_log / dsh_plugin_packages; those are disabled
+      // by the ios-host.patch.json overlay rows (see privacyPatchEntries).
+      launchEnvironment["DSH_TELEMETRY_DISABLED"] = "1"
+      launchEnvironment["DSH_TELEMETRY_MODE"] = "DISABLED"
       // Installation changes take effect at the next engine start. This is an
       // App-owned snapshot, never a user environment/configuration override.
       let linux = GuestRootfsInstaller(base: filesDirectory.appendingPathComponent("dsh-guest", isDirectory: true))
@@ -1479,7 +1506,7 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
   /// The phone tools' backend for this run, on the main thread where it does its work. A
   /// failure leaves the engine without phone tools rather than without an engine.
   private func preparePhone() throws {
-    var entries: [[String: Any]] = []
+    var entries: [[String: Any]] = Self.privacyPatchEntries
     if let library = native?.library, let source = Bundle.main.url(forResource: "phone", withExtension: nil, subdirectory: "dsh-runtime") {
       let target = installer.root.appendingPathComponent("runtime/ios/phone", isDirectory: true)
       try? FileManager.default.removeItem(at: target)
@@ -1509,16 +1536,17 @@ final class EngineChannel: NSObject, FlutterStreamHandler {
         }
       }
       if let prepared {
-        entries = [[
+        entries.append([
           "insert": [[
             "id": "dsh-go-ios-phone",
             "name": target.appendingPathComponent("plugin.mjs").path,
             "config": ["directory": prepared.directory.path, "runId": prepared.runId],
           ]],
-        ]]
+        ])
       }
     }
-    // node_runner.cc passes this file on every run: an empty one means no phone tools.
+    // node_runner.cc passes this file on every run: the privacy rows are always
+    // present, and the phone insert is added only when phone tools were prepared.
     let patch = try JSONSerialization.data(withJSONObject: entries, options: .withoutEscapingSlashes)
     try patch.write(to: dshHome.appendingPathComponent("ios-host.patch.json"), options: .atomic)
   }
