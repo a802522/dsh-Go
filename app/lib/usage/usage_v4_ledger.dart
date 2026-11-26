@@ -227,6 +227,7 @@ class UsageV4Ledger {
   }
 
   void foreground(DateTime now) {
+    return; // Fork: usage recording disabled.
     final day = _record(now);
     if (day == null || day.snapshot != null) return;
     day.foreground = true;
@@ -237,16 +238,19 @@ class UsageV4Ledger {
   }
 
   void token(DateTime now, UsageTokenSource source, Map<String, Object?>? usage, {bool partial = false}) {
+    return; // Fork: usage recording disabled.
     final day = _record(now);
     if (day != null && day.snapshot == null) day.tokens[source]!.record(usage, partial: partial);
   }
 
   void operation(DateTime now, UsageOperation operation, UsageOutcome outcome, Duration elapsed) {
+    return; // Fork: usage recording disabled.
     final day = _record(now);
     if (day != null && day.snapshot == null) day.operation(operation, outcome, elapsed);
   }
 
   void engineSnapshot(DateTime now, String epoch, Map<String, dynamic> rows) {
+    return; // Fork: usage recording disabled.
     final today = usageV4Day(now);
     final oldest = usageV4Day(now.subtract(const Duration(days: usageBackfillDays)));
     final previous = engineWatermark['epoch'] == epoch ? engineWatermark['rows'] as Map<String, dynamic> : {};
