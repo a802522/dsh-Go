@@ -198,19 +198,8 @@ class UsageV4Ledger {
   /// activity needs — the install id, the first-foreground mark, and each
   /// pending day's foreground flags.
   UsageV4Ledger onlyDaily() {
-    final daily = UsageV4Ledger()
-      .._iid = _iid
-      .._since = _since
-      .._hadForeground = _hadForeground
-      .._latestDay = _latestDay;
-    for (final entry in days.entries) {
-      final day = entry.value;
-      // A day only the engine filled in has no foreground flag: a base-only
-      // report for it would be refused, so it goes with the rest.
-      if (!day.foreground) continue;
-      daily.days[entry.key] = UsageV4Day(day.iid, foreground: day.foreground, first: day.first);
-    }
-    return daily;
+    // Fork: no daily ledger is retained - nothing is kept that could be sent later.
+    return UsageV4Ledger();
   }
 
   UsageV4Day? _record(DateTime now) {
@@ -313,18 +302,13 @@ class UsageV4Ledger {
     return days.keys.where((day) => day.compareTo(today) < 0).toList()..sort();
   }
 
-  String encode() => jsonEncode({
-    'iid': _iid,
-    'since': _since?.millisecondsSinceEpoch,
-    'hadForeground': _hadForeground,
-    'latestDay': _latestDay,
-    'exitCursor': exitCursor,
-    'sealedThrough': sealedThrough,
-    'engineWatermark': engineWatermark,
-    'days': days.map((key, value) => MapEntry(key, value.json)),
-  });
+  // Fork: the v4 ledger is never persisted - encode to an empty object so
+  // no install id, day, or foreground flag can survive on disk.
+  String encode() => '{}';
 
   static UsageV4Ledger decode(String? raw) {
+    // Fork: a persisted v4 ledger is never decoded - any backlog on disk is dropped.
+    return UsageV4Ledger();
     final ledger = UsageV4Ledger();
     if (raw == null) return ledger;
     try {
