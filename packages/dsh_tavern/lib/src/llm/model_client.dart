@@ -867,6 +867,13 @@ Map<String, Object?> prepareModelRequestBody(TavernModelConfig config, Map<Strin
   } else {
     final host = Uri.tryParse(config.baseUrl)?.host.toLowerCase() ?? '';
     _normalizeOpenAiBody(payload, keepReasoning: host == 'openrouter.ai' || host.endsWith('.openrouter.ai'));
+    final model = config.model.toLowerCase();
+    if (model.startsWith('grok-4') && !model.contains('non-reasoning')) {
+      payload.remove('presence_penalty');
+      payload.remove('frequency_penalty');
+      payload.remove('stop');
+      payload.remove('reasoning_effort');
+    }
   }
   return payload;
 }
