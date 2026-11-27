@@ -7,12 +7,11 @@ import '../fx/metal/metal_text.dart';
 import '../shell/brand_mark.dart';
 import '../theme/theme.dart';
 import 'onboarding_scaffold.dart';
-import 'usage_notice_row.dart';
 
 /// First screen on a fresh install: mostly empty space, the brand mark easing
-/// in, one sentence and one button. Over the button, the one thing everyone
-/// is told on first run: anonymous usage statistics, with their switch. The
-/// slogan sits quietly at the bottom.
+/// in, one sentence and one button. Fork (a802522): the anonymous usage
+/// statistics switch that used to sit over the button was removed entirely;
+/// the slogan sits quietly at the bottom.
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key, required this.onStart});
 
@@ -52,8 +51,6 @@ class WelcomePage extends StatelessWidget {
           ),
         ),
         const Spacer(flex: 6),
-        const FadeSlideIn(delay: Duration(milliseconds: 280), child: UsageNoticeRow()),
-        const SizedBox(height: 20),
         FadeSlideIn(
           delay: const Duration(milliseconds: 320),
           child: FilledButton(onPressed: onStart, child: Text(l10n.shellGetStarted)),
