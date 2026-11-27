@@ -1,17 +1,14 @@
-// Where the person is told and can say no: first run's welcome page (over
-// 「开始」) and 设置 › 隐私与分享 › 改进 DSH Go. Measured, not eyeballed: the
-// welcome row's text starts 16 in from the button's left edge and the switch
-// track ends 16 in from its right, both centred on the row, the row as far
-// from either screen edge; at 320 dp with large text in both languages
-// nothing overflows or is cut. Seeing either one only records that the person
-// was told — counting is on by default — and the switch turns the full
-// statistics off, leaving Android's daily activity.
+// Where the person is told and can say no: 设置 › 隐私与分享 › 改进 DSH Go.
+// Fork (a802522): first run's welcome page used to carry the same switch over
+// 「开始」; the row was removed entirely, so the welcome-row tests below are
+// gone too. The welcome golden still exists and must be regenerated
+// (flutter test --update-goldens) because the page no longer shows the row.
+// Seeing the settings switch only records that the person was told.
 //
 //   flutter test --update-goldens test/usage/usage_ui_test.dart
 
 import 'package:dsh_app/l10n/l10n.dart';
 import 'package:dsh_app/state/android_features.dart';
-import 'package:dsh_app/ui/onboarding/usage_notice_row.dart';
 import 'package:dsh_app/ui/onboarding/welcome_page.dart';
 import 'package:dsh_app/ui/settings/usage_stats_section.dart';
 import 'package:dsh_app/ui/settings/privacy_page.dart';
@@ -26,9 +23,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../engine_settings/support.dart' as engine;
 import '../shell/golden_harness.dart';
 import '../support/english_preview.dart';
-
-const _row = ValueKey('usage-notice');
-const _switch = ValueKey('usage-notice-switch');
 
 Future<void> _pumpWelcome(
   WidgetTester tester, {
@@ -68,82 +62,6 @@ void main() {
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/en_welcome_light.png'));
   });
 
-  group('the welcome row', () {
-    for (final english in [false, true]) {
-      testWidgets('lines up with the button, centred, mirrored (${english ? 'en' : 'zh'})', (tester) async {
-        await tester.runAsync(loadGoldenFonts);
-        await _pumpWelcome(tester, english: english);
-        final button = tester.getRect(find.byType(FilledButton));
-        final row = tester.getRect(find.byKey(_row));
-        final sw = tester.getRect(find.byKey(_switch));
-        final title = tester.getRect(find.text(appL10n.usageStatsTitle));
-        final body = tester.getRect(find.text(appL10n.usageNoticeBody));
-        // As wide as the button, as far from either screen edge.
-        expect(row.left, moreOrLessEquals(button.left, epsilon: 0.01));
-        expect(row.right, moreOrLessEquals(button.right, epsilon: 0.01));
-        expect(row.left, moreOrLessEquals(390 - row.right, epsilon: 0.01));
-        // Text 16 in on the left; the M3 track (4 inside the switch box) 16 in on the right.
-        expect(title.left - button.left, moreOrLessEquals(16, epsilon: 0.01));
-        expect(body.left, moreOrLessEquals(title.left, epsilon: 0.01));
-        expect(button.right - (sw.right - 4), moreOrLessEquals(16, epsilon: 0.01));
-        // The switch and the two lines centred on the row.
-        expect(sw.center.dy, moreOrLessEquals(row.center.dy, epsilon: 0.01));
-        expect((title.top + body.bottom) / 2, moreOrLessEquals(row.center.dy, epsilon: 0.6));
-        // Over the button, clear of it.
-        expect(button.top - row.bottom, moreOrLessEquals(20, epsilon: 0.01));
-        expect(tester.takeException(), isNull);
-      });
-    }
-
-    for (final (english, scale) in [(false, 1.3), (false, 2.0), (true, 1.3), (true, 2.0)]) {
-      testWidgets('320 dp, ×$scale (${english ? 'en' : 'zh'}): nothing overflows or is cut', (tester) async {
-        await tester.runAsync(loadGoldenFonts);
-        await _pumpWelcome(tester, size: const Size(320, 640), scale: scale, english: english);
-        expect(tester.takeException(), isNull);
-        for (final paragraph in tester.allRenderObjects.whereType<RenderParagraph>()) {
-          expect(paragraph.didExceedMaxLines, isFalse, reason: paragraph.text.toPlainText());
-        }
-        // The button is still reachable, with the row over it.
-        final row = tester.getRect(find.byKey(_row));
-        expect(row.bottom, lessThanOrEqualTo(tester.getRect(find.byType(FilledButton)).top));
-      });
-    }
-
-    testWidgets('on by default; seeing it marks the person as told', (tester) async {
-      await _pumpWelcome(tester);
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-      await tester.pump();
-      final state = _container(tester).read(usageStatsProvider);
-      expect(state.enabled, isTrue);
-      expect(state.noticed, isTrue);
-      expect(tester.widget<Switch>(find.byKey(_switch)).value, isTrue);
-      expect((await tester.runAsync(_stored))![UsageStatsController.noticedKey], isTrue);
-    });
-
-    testWidgets('one tap anywhere on the row turns it off, and back on', (tester) async {
-      await _pumpWelcome(tester);
-      await tester.tap(find.text(appL10n.usageNoticeBody));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-      await tester.pump();
-      expect(_container(tester).read(usageStatsProvider).enabled, isFalse);
-      expect(tester.widget<Switch>(find.byKey(_switch)).value, isFalse);
-      expect((await tester.runAsync(_stored))![UsageStatsController.enabledKey], isFalse);
-
-      await tester.tap(find.byKey(_switch));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-      await tester.pump();
-      expect(_container(tester).read(usageStatsProvider).enabled, isTrue);
-    });
-
-    testWidgets('reads as one switch to a screen reader', (tester) async {
-      final semantics = tester.ensureSemantics();
-      await _pumpWelcome(tester);
-      final node = tester.getSemantics(find.byKey(_switch));
-      expect(node.label, contains(appL10n.usageStatsTitle));
-      expect(node.label, contains(appL10n.usageNoticeBody));
-      semantics.dispose();
-    });
-  });
 
   group('设置 › 隐私与分享', () {
     Future<void> pumpPrivacy(WidgetTester tester) => engine.pumpPage(
@@ -222,14 +140,6 @@ void main() {
       expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNotNull);
     });
 
-    testWidgets('first run doesn\'t ask about it', (tester) async {
-      await pump(tester, const Scaffold(body: UsageNoticeRow()), 'ohos');
-      expect(find.byKey(_row), findsNothing);
-    });
 
-    testWidgets('on Android first run still does', (tester) async {
-      await pump(tester, const Scaffold(body: UsageNoticeRow()), 'android');
-      expect(find.byKey(_row), findsOneWidget);
-    });
   });
 }
